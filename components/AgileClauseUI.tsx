@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
+import { useAuth } from "@/lib/auth-context";
 import {
   FileText,
   Search,
@@ -15,7 +17,17 @@ import {
   MessageSquare,
   Eye,
   Trash2,
+  Download,
+  Edit3,
+  LogOut,
+  Mail,
+  Copy,
+  Clock,
+  UserPlus,
 } from "lucide-react";
+
+// Dynamically import PDF editor to avoid SSR issues
+const PdfEditor = dynamic(() => import("./PdfEditor"), { ssr: false });
 
 export default function AgileClauseUI() {
   // ===== Types =====
@@ -28,8 +40,9 @@ export default function AgileClauseUI() {
     fullText: string;
     insights: Insights | null;
   };
-  type TemplateItem = { id: string; name: string; updated_at: string };
-  type TeamMember = { id: string; name: string; role: string; created_at?: string };
+  type TemplateItem = { id: string; name: string; body: string; updated_at: string; pdfFile?: string; pdfFileName?: string };
+  type TeamMember = { id: string; name: string; email?: string; role: string; created_at?: string };
+  type Invitation = { id: string; email: string; role: string; status: string; invite_link?: string; expires_at?: string; created_at?: string };
   type ComplianceMetrics = { riskyClausesFlagged: number; contractsReviewed: number; policyCompliance: number };
   type AdminStats = { monthlyActiveUsers: number; documentsAnalyzed: number; documentsUploaded: number; avgResponseSec: number };
   type SettingsModel = {
@@ -61,8 +74,26 @@ export default function AgileClauseUI() {
 
   // Other tabs data
   const [templateList, setTemplateList] = React.useState<TemplateItem[]>([]);
+  const [templateEditorOpen, setTemplateEditorOpen] = React.useState(false);
+  const [editingTemplate, setEditingTemplate] = React.useState<TemplateItem | null>(null);
+  const [templateName, setTemplateName] = React.useState("");
+  const [templateBody, setTemplateBody] = React.useState("");
+  const [templatePdfFile, setTemplatePdfFile] = React.useState<string | null>(null);
+  const [templatePdfFileName, setTemplatePdfFileName] = React.useState<string | null>(null);
+  const templatePdfInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [pdfEditorOpen, setPdfEditorOpen] = React.useState(false);
+  const [editingPdfTemplate, setEditingPdfTemplate] = React.useState<TemplateItem | null>(null);
   const [team, setTeam] = React.useState<TeamMember[]>([]);
+  const [invitations, setInvitations] = React.useState<Invitation[]>([]);
+  const [inviteModalOpen, setInviteModalOpen] = React.useState(false);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteRole, setInviteRole] = React.useState("viewer");
+  const [inviteLoading, setInviteLoading] = React.useState(false);
+  const [lastInviteLink, setLastInviteLink] = React.useState<string | null>(null);
   const [settings, setSettings] = React.useState<SettingsModel | null>(null);
+
+  // Auth
+  const { user, profile, signOut } = useAuth();
   const [compliance, setCompliance] = React.useState<ComplianceMetrics | null>(null);
   const [adminStats, setAdminStats] = React.useState<AdminStats | null>(null);
 
@@ -86,7 +117,10 @@ export default function AgileClauseUI() {
         } else if (active === "Team") {
           const r = await fetch("/api/team");
           const j = await r.json();
-          if (r.ok) setTeam(j.members || []);
+          if (r.ok) {
+            setTeam(j.members || []);
+            setInvitations(j.invitations || []);
+          }
         } else if (active === "Settings") {
           const r = await fetch("/api/settings");
           const j = await r.json();
@@ -302,16 +336,28 @@ export default function AgileClauseUI() {
           <NavBtn icon={Search} label="Legal Q&A" />
           <NavBtn icon={ShieldCheck} label="Compliance" />
           <NavBtn icon={FileText} label="Templates" />
-          <NavBtn icon={Users} label="Team" />
+          {profile?.permissions?.manage_team && <NavBtn icon={Users} label="Team" />}
           <NavBtn icon={Settings} label="Settings" />
-          <NavBtn icon={BarChart} label="Admin" />
+          {profile?.role === "admin" && <NavBtn icon={BarChart} label="Admin" />}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200 space-y-3">
+          {/* User profile */}
+          {profile && (
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm">
+                {profile.full_name?.[0]?.toUpperCase() || profile.email[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{profile.full_name || profile.email}</p>
+                <p className="text-xs text-slate-500 capitalize">{profile.role}</p>
+              </div>
+            </div>
+          )}
           <button
-            onClick={runApiDiagnostics}
+            onClick={signOut}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
           >
-            <RefreshCw className="h-4 w-4" /> Run Diagnostics
+            <LogOut className="h-4 w-4" /> Sign Out
           </button>
         </div>
       </aside>
@@ -545,91 +591,540 @@ export default function AgileClauseUI() {
 
           {/* Templates */}
           {active === "Templates" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Templates</h3>
-                <button
-                  className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                  onClick={async () => {
-                    const name = prompt("Template name?");
-                    if (!name) return;
-                    const r = await fetch("/api/templates", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name, body: "" }),
-                    });
-                    const j = await r.json();
-                    if (r.ok && j.template) setTemplateList([j.template, ...templateList]);
-                    else alert(j.error || "Create failed");
-                  }}
-                >
-                  New Template
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {templateList.map((t) => (
-                  <div key={t.id} className="rounded-xl border p-4 hover:shadow-sm">
-                    <p className="font-medium">{t.name}</p>
-                    <p className="text-xs text-slate-500">Updated {new Date(t.updated_at).toLocaleString()}</p>
-                    <div className="mt-3 flex gap-2">
-                      <button className="rounded-lg border px-2 py-1 text-sm" onClick={() => alert("Open editor coming soon")}>
-                        Open
+            <>
+              {/* Template Editor Modal */}
+              {templateEditorOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-6 py-4 border-b">
+                      <h3 className="font-semibold text-lg">
+                        {editingTemplate ? "Edit Template" : "Create New Template"}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setTemplateEditorOpen(false);
+                          setEditingTemplate(null);
+                          setTemplateName("");
+                          setTemplateBody("");
+                          setTemplatePdfFile(null);
+                          setTemplatePdfFileName(null);
+                        }}
+                        className="text-slate-500 hover:text-slate-700 text-xl"
+                      >
+                        ×
                       </button>
-                      <button className="rounded-lg border px-2 py-1 text-sm" onClick={() => alert("Duplicate coming soon")}>
-                        Duplicate
+                    </div>
+                    <div className="p-6 space-y-4 flex-1 overflow-auto">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Template Name
+                        </label>
+                        <input
+                          type="text"
+                          value={templateName}
+                          onChange={(e) => setTemplateName(e.target.value)}
+                          placeholder="e.g., Standard NDA, Service Agreement"
+                          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </div>
+
+                      {/* PDF Upload Section */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          PDF Template (Optional)
+                        </label>
+                        <input
+                          ref={templatePdfInputRef}
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                setTemplatePdfFile(reader.result as string);
+                                setTemplatePdfFileName(file.name);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => templatePdfInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                          >
+                            <Upload className="h-4 w-4" />
+                            {templatePdfFile ? "Change PDF" : "Upload PDF"}
+                          </button>
+                          {templatePdfFileName && (
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <FileText className="h-4 w-4 text-red-500" />
+                              <span>{templatePdfFileName}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTemplatePdfFile(null);
+                                  setTemplatePdfFileName(null);
+                                  if (templatePdfInputRef.current) {
+                                    templatePdfInputRef.current.value = "";
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Upload a PDF to use as a downloadable template
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Template Content / Notes
+                        </label>
+                        <textarea
+                          value={templateBody}
+                          onChange={(e) => setTemplateBody(e.target.value)}
+                          placeholder="Enter your template content here, or add notes about the PDF template. You can use placeholders like [PARTY_NAME], [DATE], [AMOUNT] etc."
+                          rows={12}
+                          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 font-mono"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-slate-50">
+                      <button
+                        onClick={() => {
+                          setTemplateEditorOpen(false);
+                          setEditingTemplate(null);
+                          setTemplateName("");
+                          setTemplateBody("");
+                          setTemplatePdfFile(null);
+                          setTemplatePdfFileName(null);
+                        }}
+                        className="rounded-xl border px-4 py-2 text-sm hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!templateName.trim()) {
+                            alert("Please enter a template name");
+                            return;
+                          }
+                          if (editingTemplate) {
+                            // Update existing template in local state
+                            setTemplateList((prev) =>
+                              prev.map((t) =>
+                                t.id === editingTemplate.id
+                                  ? {
+                                      ...t,
+                                      name: templateName,
+                                      body: templateBody,
+                                      updated_at: new Date().toISOString(),
+                                      pdfFile: templatePdfFile || t.pdfFile,
+                                      pdfFileName: templatePdfFileName || t.pdfFileName,
+                                    }
+                                  : t
+                              )
+                            );
+                          } else {
+                            // Create new template
+                            const r = await fetch("/api/templates", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ name: templateName, body: templateBody }),
+                            });
+                            const j = await r.json();
+                            if (r.ok && j.template) {
+                              setTemplateList([
+                                {
+                                  ...j.template,
+                                  body: templateBody,
+                                  pdfFile: templatePdfFile || undefined,
+                                  pdfFileName: templatePdfFileName || undefined,
+                                },
+                                ...templateList,
+                              ]);
+                            } else {
+                              alert(j.error || "Create failed");
+                              return;
+                            }
+                          }
+                          setTemplateEditorOpen(false);
+                          setEditingTemplate(null);
+                          setTemplateName("");
+                          setTemplateBody("");
+                          setTemplatePdfFile(null);
+                          setTemplatePdfFileName(null);
+                        }}
+                        className="rounded-xl bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700"
+                      >
+                        {editingTemplate ? "Save Changes" : "Create Template"}
                       </button>
                     </div>
                   </div>
-                ))}
-                {templateList.length === 0 && <p className="text-sm text-slate-500">No templates yet.</p>}
-              </div>
-            </section>
+                </div>
+              )}
+
+              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Templates</h3>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setTemplateName("");
+                      setTemplateBody("");
+                      setTemplatePdfFile(null);
+                      setTemplatePdfFileName(null);
+                      setTemplateEditorOpen(true);
+                    }}
+                  >
+                    + New Template
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {templateList.map((t) => (
+                    <div key={t.id} className="rounded-xl border p-4 hover:shadow-sm">
+                      <div className="flex items-start justify-between">
+                        <p className="font-medium">{t.name}</p>
+                        {t.pdfFile && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                            <FileText className="h-3 w-3" /> PDF
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">Updated {new Date(t.updated_at).toLocaleString()}</p>
+                      {t.pdfFileName && (
+                        <p className="text-xs text-slate-400 mt-1 truncate">
+                          {t.pdfFileName}
+                        </p>
+                      )}
+                      {t.body && !t.pdfFile && (
+                        <p className="text-xs text-slate-400 mt-1 truncate">
+                          {t.body.substring(0, 50)}{t.body.length > 50 ? "..." : ""}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                          onClick={() => {
+                            setEditingTemplate(t);
+                            setTemplateName(t.name);
+                            setTemplateBody(t.body || "");
+                            setTemplatePdfFile(t.pdfFile || null);
+                            setTemplatePdfFileName(t.pdfFileName || null);
+                            setTemplateEditorOpen(true);
+                          }}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                          onClick={() => {
+                            setEditingTemplate(null);
+                            setTemplateName(t.name + " (Copy)");
+                            setTemplateBody(t.body || "");
+                            setTemplatePdfFile(t.pdfFile || null);
+                            setTemplatePdfFileName(t.pdfFileName || null);
+                            setTemplateEditorOpen(true);
+                          }}
+                        >
+                          Duplicate
+                        </button>
+                        {t.pdfFile && (
+                          <>
+                            <button
+                              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm text-green-600 hover:bg-green-50"
+                              onClick={() => {
+                                setEditingPdfTemplate(t);
+                                setPdfEditorOpen(true);
+                              }}
+                            >
+                              <Edit3 className="h-3 w-3" />
+                              Edit PDF
+                            </button>
+                            <button
+                              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm text-blue-600 hover:bg-blue-50"
+                              onClick={() => {
+                                const link = document.createElement("a");
+                                link.href = t.pdfFile!;
+                                link.download = t.pdfFileName || `${t.name}.pdf`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </button>
+                          </>
+                        )}
+                        <button
+                          className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            if (confirm("Delete this template?")) {
+                              setTemplateList((prev) => prev.filter((item) => item.id !== t.id));
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {templateList.length === 0 && (
+                    <div className="col-span-3 text-center py-8">
+                      <p className="text-sm text-slate-500 mb-2">No templates yet.</p>
+                      <button
+                        className="text-sm text-blue-600 hover:underline"
+                        onClick={() => {
+                          setEditingTemplate(null);
+                          setTemplateName("");
+                          setTemplateBody("");
+                          setTemplatePdfFile(null);
+                          setTemplatePdfFileName(null);
+                          setTemplateEditorOpen(true);
+                        }}
+                      >
+                        Create your first template
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </>
           )}
 
           {/* Team */}
           {active === "Team" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Team</h3>
-                <button
-                  className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                  onClick={async () => {
-                    const name = prompt("Member name?");
-                    const role = name ? prompt("Role (e.g., General Counsel, Associate, Paralegal)?") : null;
-                    if (!name || !role) return;
-                    const r = await fetch("/api/team", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name, role }),
-                    });
-                    const j = await r.json();
-                    if (r.ok && j.member) setTeam([...team, j.member]);
-                    else alert(j.error || "Invite failed");
-                  }}
-                >
-                  Invite Member
-                </button>
-              </div>
-              <div className="divide-y">
-                {team.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">{m.name}</p>
-                      <p className="text-xs text-slate-500">{m.role}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="rounded-lg border px-2 py-1 text-sm" onClick={() => alert("Role edit coming soon")}>
-                        Make Admin
-                      </button>
-                      <button className="rounded-lg border px-2 py-1 text-sm" onClick={() => alert("Remove coming soon")}>
-                        Remove
-                      </button>
-                    </div>
+            <>
+              {/* Invite Modal */}
+              {inviteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+                    <h3 className="font-semibold text-lg mb-4">Invite Team Member</h3>
+
+                    {lastInviteLink ? (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                          <p className="text-sm text-green-700 mb-2">Invitation created! Share this link:</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={lastInviteLink}
+                              readOnly
+                              className="flex-1 px-3 py-2 bg-white border rounded-lg text-sm"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(lastInviteLink);
+                                alert("Link copied!");
+                              }}
+                              className="px-3 py-2 border rounded-lg hover:bg-slate-50"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setInviteModalOpen(false);
+                            setLastInviteLink(null);
+                            setInviteEmail("");
+                            setInviteRole("viewer");
+                          }}
+                          className="w-full py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setInviteLoading(true);
+                          try {
+                            const r = await fetch("/api/team", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+                            });
+                            const j = await r.json();
+                            if (r.ok && j.invitation) {
+                              setLastInviteLink(j.invitation.invite_link);
+                              setInvitations([j.invitation, ...invitations]);
+                            } else {
+                              alert(j.error || "Invite failed");
+                            }
+                          } catch {
+                            alert("Failed to send invitation");
+                          } finally {
+                            setInviteLoading(false);
+                          }
+                        }}
+                        className="space-y-4"
+                      >
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                              type="email"
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder="colleague@company.com"
+                              required
+                              className="w-full pl-10 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                          <select
+                            value={inviteRole}
+                            onChange={(e) => setInviteRole(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          >
+                            <option value="viewer">Viewer - Can view contracts and compliance</option>
+                            <option value="editor">Editor - Can manage templates and analyze contracts</option>
+                            <option value="admin">Admin - Full access including team management</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInviteModalOpen(false);
+                              setInviteEmail("");
+                              setInviteRole("viewer");
+                            }}
+                            className="flex-1 py-2 border rounded-xl hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={inviteLoading}
+                            className="flex-1 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {inviteLoading ? "Sending..." : "Send Invitation"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
-                ))}
-                {team.length === 0 && <p className="text-sm text-slate-500 py-3">No team members yet.</p>}
-              </div>
-            </section>
+                </div>
+              )}
+
+              {/* Team Members */}
+              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Team Members</h3>
+                  <button
+                    onClick={() => setInviteModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Invite Member
+                  </button>
+                </div>
+                <div className="divide-y">
+                  {team.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-medium">
+                          {m.name?.[0]?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <p className="font-medium">{m.name}</p>
+                          <p className="text-xs text-slate-500">{m.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          m.role === "admin" ? "bg-purple-100 text-purple-700" :
+                          m.role === "editor" ? "bg-blue-100 text-blue-700" :
+                          "bg-slate-100 text-slate-700"
+                        }`}>
+                          {m.role}
+                        </span>
+                        {m.id !== profile?.id && (
+                          <button
+                            className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (!confirm("Remove this team member?")) return;
+                              const r = await fetch(`/api/team?id=${m.id}&type=member`, { method: "DELETE" });
+                              if (r.ok) setTeam(team.filter(t => t.id !== m.id));
+                              else alert("Failed to remove member");
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {team.length === 0 && (
+                    <p className="text-sm text-slate-500 py-4 text-center">No team members yet. Invite someone to get started!</p>
+                  )}
+                </div>
+              </section>
+
+              {/* Pending Invitations */}
+              {invitations.length > 0 && (
+                <section className="rounded-2xl border bg-white p-6 shadow-sm mt-6">
+                  <h3 className="font-semibold mb-4">Pending Invitations</h3>
+                  <div className="divide-y">
+                    {invitations.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-amber-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{inv.email}</p>
+                            <p className="text-xs text-slate-500">
+                              Invited as {inv.role} • Expires {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "soon"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {inv.invite_link && (
+                            <button
+                              className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                              onClick={() => {
+                                navigator.clipboard.writeText(inv.invite_link!);
+                                alert("Link copied!");
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (!confirm("Cancel this invitation?")) return;
+                              const r = await fetch(`/api/team?id=${inv.id}&type=invitation`, { method: "DELETE" });
+                              if (r.ok) setInvitations(invitations.filter(i => i.id !== inv.id));
+                              else alert("Failed to cancel invitation");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
           {/* Compliance */}
@@ -859,6 +1354,29 @@ export default function AgileClauseUI() {
           )}
         </div>
       </main>
+
+      {/* PDF Editor Modal */}
+      {pdfEditorOpen && editingPdfTemplate?.pdfFile && (
+        <PdfEditor
+          pdfData={editingPdfTemplate.pdfFile}
+          pdfFileName={editingPdfTemplate.pdfFileName || `${editingPdfTemplate.name}.pdf`}
+          onSave={(newPdfData) => {
+            setTemplateList((prev) =>
+              prev.map((t) =>
+                t.id === editingPdfTemplate.id
+                  ? { ...t, pdfFile: newPdfData, updated_at: new Date().toISOString() }
+                  : t
+              )
+            );
+            setPdfEditorOpen(false);
+            setEditingPdfTemplate(null);
+          }}
+          onClose={() => {
+            setPdfEditorOpen(false);
+            setEditingPdfTemplate(null);
+          }}
+        />
+      )}
     </div>
   );
 }

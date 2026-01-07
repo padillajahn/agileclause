@@ -9,12 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
     "lucide-react": "^0.542.0",
     "mammoth": "^1.10.0",
     "next": "15.5.2",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-pdf": "^10.3.0",
+    "resend": "^6.6.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
