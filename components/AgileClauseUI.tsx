@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import {
   FileText,
@@ -45,6 +46,7 @@ export default function AgileClauseUI() {
   type Invitation = { id: string; email: string; role: string; status: string; invite_link?: string; expires_at?: string; created_at?: string };
   type ComplianceMetrics = { riskyClausesFlagged: number; contractsReviewed: number; policyCompliance: number };
   type AdminStats = { monthlyActiveUsers: number; documentsAnalyzed: number; documentsUploaded: number; avgResponseSec: number };
+  type DemoRequest = { id: string; first_name: string; last_name: string; email: string; company_name: string; job_title: string; team_size: string; phone: string | null; how_heard: string; created_at: string };
   type SettingsModel = {
     productName: string;
     primaryColor: string;
@@ -96,6 +98,7 @@ export default function AgileClauseUI() {
   const { user, profile, signOut } = useAuth();
   const [compliance, setCompliance] = React.useState<ComplianceMetrics | null>(null);
   const [adminStats, setAdminStats] = React.useState<AdminStats | null>(null);
+  const [demoRequests, setDemoRequests] = React.useState<DemoRequest[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -130,9 +133,22 @@ export default function AgileClauseUI() {
           const j = await r.json();
           if (r.ok) setCompliance(j.metrics || null);
         } else if (active === "Admin") {
-          const r = await fetch("/api/admin");
-          const j = await r.json();
-          if (r.ok) setAdminStats(j.stats || null);
+          // Fetch admin stats
+          try {
+            const r = await fetch("/api/admin");
+            if (r.ok) {
+              const j = await r.json();
+              setAdminStats(j.stats || null);
+            }
+          } catch { /* ignore */ }
+          // Fetch demo requests
+          try {
+            const dr = await fetch("/api/demo-requests");
+            if (dr.ok) {
+              const drj = await dr.json();
+              setDemoRequests(drj.requests || []);
+            }
+          } catch { /* ignore */ }
         }
       } catch {
         // swallow for now
@@ -294,7 +310,7 @@ export default function AgileClauseUI() {
     <button
       onClick={() => setActive(label)}
       className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
-        active === label ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
+        active === label ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"
       }`}
       aria-pressed={active === label}
     >
@@ -321,14 +337,16 @@ export default function AgileClauseUI() {
 
   // ===== Render =====
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-72 border-r border-slate-200 bg-white/70 backdrop-blur-md">
+      <aside className="fixed left-0 top-0 h-full w-72 border-r border-slate-200 bg-white z-20">
         <div className="px-6 py-5 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-600" />
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
             <span className="text-xl font-semibold tracking-tight">AgileClause</span>
-          </div>
+          </Link>
           <p className="mt-1 text-xs text-slate-500">AI for contracts & compliance</p>
         </div>
         <nav className="p-3 space-y-1">
@@ -355,7 +373,7 @@ export default function AgileClauseUI() {
           )}
           <button
             onClick={signOut}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-white transition"
           >
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
@@ -363,9 +381,9 @@ export default function AgileClauseUI() {
       </aside>
 
       {/* Main content */}
-      <main className="ml-72">
+      <main className="ml-72 relative z-10">
         {/* Top bar */}
-        <header className="sticky top-0 z-10 bg-white/70 backdrop-blur-md border-b border-slate-200">
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200">
           <div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
             <h1 className="text-lg font-semibold">{active}</h1>
             <div className="flex items-center gap-2">
@@ -377,7 +395,7 @@ export default function AgileClauseUI() {
                   <Upload className="h-4 w-4" /> New Document
                 </button>
               )}
-              <button className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-slate-700 hover:bg-slate-50">
+              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-white transition">
                 <Play className="h-4 w-4" /> Quick Demo
               </button>
             </div>
@@ -387,18 +405,18 @@ export default function AgileClauseUI() {
         <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
           {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">{errorMsg}</div>}
           {!errorMsg && warningMsg && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">{warningMsg}</div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">{warningMsg}</div>
           )}
 
           {/* Contracts */}
           {active === "Contracts" && (
             <>
               {/* Upload */}
-              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h2 className="text-base font-semibold">Upload Contracts</h2>
-                    <p className="text-sm text-slate-500">PDF, DOCX, or TXT — we’ll scan and flag risks automatically.</p>
+                    <p className="text-sm text-slate-500">PDF, DOCX, or TXT — we'll scan and flag risks automatically.</p>
                     {selectedFile && <p className="text-xs text-slate-500 mt-1">Selected: {selectedFile.name}</p>}
                   </div>
                   <div className="flex items-center gap-2">
@@ -417,13 +435,13 @@ export default function AgileClauseUI() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 rounded-xl border border-dashed bg-slate-50/60 p-6 text-center text-sm text-slate-600">
+                <div className="mt-4 rounded-xl border border-dashed bg-white/60 p-6 text-center text-sm text-slate-500">
                   Drag & drop your file here, or use the Upload button.
                 </div>
               </section>
 
               {/* Project Workspace (session) */}
-              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold">Project Workspace</h3>
                   <p className="text-xs text-slate-500">Session-only for now — persistence is via Supabase APIs.</p>
@@ -449,7 +467,7 @@ export default function AgileClauseUI() {
                             {doc.status}
                           </span>
                           <button
-                            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm hover:bg-slate-50 disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                             onClick={() => openAnalysis(doc)}
                             disabled={doc.status !== "Analyzed"}
                             title={doc.status === "Analyzed" ? "Open Analysis" : "Analyzing…"}
@@ -458,7 +476,7 @@ export default function AgileClauseUI() {
                             View Analysis
                           </button>
                           <button
-                            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100 text-sm hover:bg-white"
                             onClick={() => removeFromWorkspace(doc.id)}
                             title="Remove from list"
                           >
@@ -474,13 +492,13 @@ export default function AgileClauseUI() {
 
               {/* Content grid */}
               <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2 rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6">
                   <h3 className="font-semibold">Contract Text</h3>
-                  <div className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 min-h-[260px] max-h-[65vh] overflow-auto whitespace-pre-wrap">
+                  <div className="mt-3 rounded-xl bg-white p-4 text-sm text-slate-700 min-h-[260px] max-h-[65vh] overflow-auto whitespace-pre-wrap">
                     {contractText || (loading ? "Analyzing..." : "Upload a contract to begin analysis.")}
                   </div>
                 </div>
-                <div className="rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6">
                   <h3 className="font-semibold">AI Insights</h3>
                   {!aiInsights && !loading && (
                     <p className="mt-2 text-sm text-slate-500">Upload a document to see flagged risks, key clauses, and a summary.</p>
@@ -505,7 +523,7 @@ export default function AgileClauseUI() {
               </section>
 
               {/* Contract Q&A */}
-              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="h-4 w-4 text-blue-600" />
                   <h3 className="font-semibold">Ask This Contract</h3>
@@ -514,7 +532,7 @@ export default function AgileClauseUI() {
                   <input
                     type="text"
                     placeholder="e.g., What are the termination penalties?"
-                    className="flex-1 rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         const value = (e.currentTarget as HTMLInputElement).value;
@@ -525,13 +543,13 @@ export default function AgileClauseUI() {
                   />
                   <button
                     onClick={() => askContractQuestion("What are the termination risks?")}
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                    className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-slate-700 text-sm hover:bg-slate-200"
                   >
                     Ask
                   </button>
                 </div>
                 {contractQA && (
-                  <div className="mt-4 rounded-xl border bg-slate-50 p-4 text-sm">
+                  <div className="mt-4 rounded-xl border bg-white p-4 text-sm">
                     <p className="font-medium">Q:</p>
                     <p className="text-slate-800">{contractQA.question}</p>
                     <p className="font-medium mt-2">A:</p>
@@ -545,14 +563,14 @@ export default function AgileClauseUI() {
           {/* Legal Q&A */}
           {active === "Legal Q&A" && (
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6">
                 <h3 className="font-semibold mb-2">Firmwide Legal Q&A</h3>
                 <p className="text-sm text-slate-500 mb-4">Ask general legal questions (not tied to a single document).</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="e.g., What is a reasonable limitation of liability?"
-                    className="flex-1 rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         const value = (e.currentTarget as HTMLInputElement).value;
@@ -562,14 +580,14 @@ export default function AgileClauseUI() {
                     }}
                   />
                   <button
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
-                    onClick={() => askGlobalQuestion("What’s a reasonable liability cap?")}
+                    className="rounded-xl border border-slate-200 bg-blue-600 px-3 py-2 text-white text-sm hover:bg-blue-700"
+                    onClick={() => askGlobalQuestion("What's a reasonable liability cap?")}
                   >
                     Ask
                   </button>
                 </div>
                 {globalQA && (
-                  <div className="mt-4 rounded-2xl border bg-slate-50 p-4 text-sm">
+                  <div className="mt-4 rounded-2xl border bg-white p-4 text-sm">
                     <p className="font-medium">Q:</p>
                     <p className="text-slate-800">{globalQA.question}</p>
                     <p className="font-medium mt-2">A:</p>
@@ -578,7 +596,7 @@ export default function AgileClauseUI() {
                 )}
               </div>
 
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6">
                 <h3 className="font-semibold mb-2">Pinned Topics</h3>
                 <ul className="text-sm list-disc list-inside space-y-1 text-slate-700">
                   <li>Indemnification best practices</li>
@@ -624,7 +642,7 @@ export default function AgileClauseUI() {
                           value={templateName}
                           onChange={(e) => setTemplateName(e.target.value)}
                           placeholder="e.g., Standard NDA, Service Agreement"
-                          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                         />
                       </div>
 
@@ -654,13 +672,13 @@ export default function AgileClauseUI() {
                           <button
                             type="button"
                             onClick={() => templatePdfInputRef.current?.click()}
-                            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-slate-700 text-sm hover:bg-slate-200"
                           >
                             <Upload className="h-4 w-4" />
                             {templatePdfFile ? "Change PDF" : "Upload PDF"}
                           </button>
                           {templatePdfFileName && (
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <div className="flex items-center gap-2 text-sm text-slate-500">
                               <FileText className="h-4 w-4 text-red-500" />
                               <span>{templatePdfFileName}</span>
                               <button
@@ -693,11 +711,11 @@ export default function AgileClauseUI() {
                           onChange={(e) => setTemplateBody(e.target.value)}
                           placeholder="Enter your template content here, or add notes about the PDF template. You can use placeholders like [PARTY_NAME], [DATE], [AMOUNT] etc."
                           rows={12}
-                          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 font-mono"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 font-mono"
                         />
                       </div>
                     </div>
-                    <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-slate-50">
+                    <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-white">
                       <button
                         onClick={() => {
                           setTemplateEditorOpen(false);
@@ -772,7 +790,7 @@ export default function AgileClauseUI() {
                 </div>
               )}
 
-              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold">Templates</h3>
                   <button
@@ -791,7 +809,7 @@ export default function AgileClauseUI() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {templateList.map((t) => (
-                    <div key={t.id} className="rounded-xl border p-4 hover:shadow-sm">
+                    <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-4 hover:shadow-sm">
                       <div className="flex items-start justify-between">
                         <p className="font-medium">{t.name}</p>
                         {t.pdfFile && (
@@ -802,18 +820,18 @@ export default function AgileClauseUI() {
                       </div>
                       <p className="text-xs text-slate-500">Updated {new Date(t.updated_at).toLocaleString()}</p>
                       {t.pdfFileName && (
-                        <p className="text-xs text-slate-400 mt-1 truncate">
+                        <p className="text-xs text-slate-500 mt-1 truncate">
                           {t.pdfFileName}
                         </p>
                       )}
                       {t.body && !t.pdfFile && (
-                        <p className="text-xs text-slate-400 mt-1 truncate">
+                        <p className="text-xs text-slate-500 mt-1 truncate">
                           {t.body.substring(0, 50)}{t.body.length > 50 ? "..." : ""}
                         </p>
                       )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
-                          className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100 text-sm hover:bg-white"
                           onClick={() => {
                             setEditingTemplate(t);
                             setTemplateName(t.name);
@@ -826,7 +844,7 @@ export default function AgileClauseUI() {
                           Open
                         </button>
                         <button
-                          className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100 text-sm hover:bg-white"
                           onClick={() => {
                             setEditingTemplate(null);
                             setTemplateName(t.name + " (Copy)");
@@ -841,7 +859,7 @@ export default function AgileClauseUI() {
                         {t.pdfFile && (
                           <>
                             <button
-                              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm text-green-600 hover:bg-green-50"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-green-600 hover:bg-green-50"
                               onClick={() => {
                                 setEditingPdfTemplate(t);
                                 setPdfEditorOpen(true);
@@ -851,7 +869,7 @@ export default function AgileClauseUI() {
                               Edit PDF
                             </button>
                             <button
-                              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm text-blue-600 hover:bg-blue-50"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-blue-600 hover:bg-blue-50"
                               onClick={() => {
                                 const link = document.createElement("a");
                                 link.href = t.pdfFile!;
@@ -867,7 +885,7 @@ export default function AgileClauseUI() {
                           </>
                         )}
                         <button
-                          className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50"
                           onClick={() => {
                             if (confirm("Delete this template?")) {
                               setTemplateList((prev) => prev.filter((item) => item.id !== t.id));
@@ -927,7 +945,7 @@ export default function AgileClauseUI() {
                                 navigator.clipboard.writeText(lastInviteLink);
                                 alert("Link copied!");
                               }}
-                              className="px-3 py-2 border rounded-lg hover:bg-slate-50"
+                              className="px-3 py-2 border rounded-lg hover:bg-white"
                             >
                               <Copy className="h-4 w-4" />
                             </button>
@@ -974,14 +992,14 @@ export default function AgileClauseUI() {
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                           <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                             <input
                               type="email"
                               value={inviteEmail}
                               onChange={(e) => setInviteEmail(e.target.value)}
                               placeholder="colleague@company.com"
                               required
-                              className="w-full pl-10 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              className="w-full pl-10 pr-3 py-2 border border-slate-200 bg-white rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
                             />
                           </div>
                         </div>
@@ -990,11 +1008,11 @@ export default function AgileClauseUI() {
                           <select
                             value={inviteRole}
                             onChange={(e) => setInviteRole(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           >
-                            <option value="viewer">Viewer - Can view contracts and compliance</option>
-                            <option value="editor">Editor - Can manage templates and analyze contracts</option>
-                            <option value="admin">Admin - Full access including team management</option>
+                            <option value="viewer" className="bg-white">Viewer - Can view contracts and compliance</option>
+                            <option value="editor" className="bg-white">Editor - Can manage templates and analyze contracts</option>
+                            <option value="admin" className="bg-white">Admin - Full access including team management</option>
                           </select>
                         </div>
                         <div className="flex gap-2">
@@ -1005,7 +1023,7 @@ export default function AgileClauseUI() {
                               setInviteEmail("");
                               setInviteRole("viewer");
                             }}
-                            className="flex-1 py-2 border rounded-xl hover:bg-slate-50"
+                            className="flex-1 py-2 border border-slate-200 rounded-xl text-slate-700 hover:bg-white"
                           >
                             Cancel
                           </button>
@@ -1024,7 +1042,7 @@ export default function AgileClauseUI() {
               )}
 
               {/* Team Members */}
-              <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold">Team Members</h3>
                   <button
@@ -1039,7 +1057,7 @@ export default function AgileClauseUI() {
                   {team.map((m) => (
                     <div key={m.id} className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-medium">
+                        <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-medium">
                           {m.name?.[0]?.toUpperCase() || "?"}
                         </div>
                         <div>
@@ -1057,7 +1075,7 @@ export default function AgileClauseUI() {
                         </span>
                         {m.id !== profile?.id && (
                           <button
-                            className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50"
                             onClick={async () => {
                               if (!confirm("Remove this team member?")) return;
                               const r = await fetch(`/api/team?id=${m.id}&type=member`, { method: "DELETE" });
@@ -1079,7 +1097,7 @@ export default function AgileClauseUI() {
 
               {/* Pending Invitations */}
               {invitations.length > 0 && (
-                <section className="rounded-2xl border bg-white p-6 shadow-sm mt-6">
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 mt-6">
                   <h3 className="font-semibold mb-4">Pending Invitations</h3>
                   <div className="divide-y">
                     {invitations.map((inv) => (
@@ -1098,7 +1116,7 @@ export default function AgileClauseUI() {
                         <div className="flex items-center gap-2">
                           {inv.invite_link && (
                             <button
-                              className="rounded-lg border px-2 py-1 text-sm hover:bg-slate-50"
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100 text-sm hover:bg-white"
                               onClick={() => {
                                 navigator.clipboard.writeText(inv.invite_link!);
                                 alert("Link copied!");
@@ -1108,7 +1126,7 @@ export default function AgileClauseUI() {
                             </button>
                           )}
                           <button
-                            className="rounded-lg border px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50"
                             onClick={async () => {
                               if (!confirm("Cancel this invitation?")) return;
                               const r = await fetch(`/api/team?id=${inv.id}&type=invitation`, { method: "DELETE" });
@@ -1129,19 +1147,19 @@ export default function AgileClauseUI() {
 
           {/* Compliance */}
           {active === "Compliance" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="font-semibold mb-2">Compliance Dashboard</h3>
-              <p className="text-sm text-slate-600">Track clause coverage, risky terms frequency, and policy alignment.</p>
+              <p className="text-sm text-slate-500">Track clause coverage, risky terms frequency, and policy alignment.</p>
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Risky clauses flagged</p>
                   <p className="text-2xl font-semibold">{compliance?.riskyClausesFlagged ?? 0}</p>
                 </div>
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Contracts reviewed</p>
                   <p className="text-2xl font-semibold">{compliance?.contractsReviewed ?? 0}</p>
                 </div>
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Policy compliance</p>
                   <p className="text-2xl font-semibold">{(compliance?.policyCompliance ?? 0) + "%"}</p>
                 </div>
@@ -1151,7 +1169,7 @@ export default function AgileClauseUI() {
 
           {/* Settings */}
           {active === "Settings" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm text-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm">
               <h3 className="font-semibold mb-4">Workspace Settings</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1161,7 +1179,7 @@ export default function AgileClauseUI() {
                   <div>
                     <label className="block text-slate-700 mb-1">Product name</label>
                     <input
-                      className="w-full rounded-xl border px-3 py-2"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900"
                       value={settings?.productName ?? defaultSettings.productName}
                       onChange={(e) => setSettings((s) => ({ ...(s || defaultSettings), productName: e.target.value }))}
                     />
@@ -1187,7 +1205,7 @@ export default function AgileClauseUI() {
                   <div>
                     <label className="block text-slate-700 mb-1">Preferred governing law</label>
                     <select
-                      className="w-full rounded-xl border px-3 py-2"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900"
                       value={settings?.policy?.governingLaw ?? defaultSettings.policy.governingLaw}
                       onChange={(e) =>
                         setSettings((s) => ({
@@ -1205,7 +1223,7 @@ export default function AgileClauseUI() {
                   <div>
                     <label className="block text-slate-700 mb-1">Default liability cap</label>
                     <select
-                      className="w-full rounded-xl border px-3 py-2"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900"
                       value={settings?.policy?.liabilityCap ?? defaultSettings.policy.liabilityCap}
                       onChange={(e) =>
                         setSettings((s) => ({
@@ -1222,7 +1240,7 @@ export default function AgileClauseUI() {
                   <div>
                     <label className="block text-slate-700 mb-1">Arbitration</label>
                     <select
-                      className="w-full rounded-xl border px-3 py-2"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900"
                       value={settings?.policy?.arbitration ?? defaultSettings.policy.arbitration}
                       onChange={(e) =>
                         setSettings((s) => ({
@@ -1241,7 +1259,7 @@ export default function AgileClauseUI() {
 
               <div className="mt-6 flex items-center gap-2">
                 <button
-                  className="rounded-xl bg-slate-900 text-white px-3 py-2"
+                  className="rounded-xl bg-blue-600 text-white px-3 py-2"
                   onClick={async () => {
                     try {
                       const r = await fetch("/api/settings", {
@@ -1257,7 +1275,7 @@ export default function AgileClauseUI() {
                 >
                   Save changes
                 </button>
-                <button className="rounded-xl border px-3 py-2" onClick={() => setSettings(defaultSettings)}>
+                <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900" onClick={() => setSettings(defaultSettings)}>
                   Reset
                 </button>
               </div>
@@ -1266,18 +1284,18 @@ export default function AgileClauseUI() {
 
           {/* Admin */}
           {active === "Admin" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm text-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm">
               <h3 className="font-semibold mb-4">Admin</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Monthly active users</p>
                   <p className="text-2xl font-semibold">{adminStats?.monthlyActiveUsers ?? 0}</p>
                 </div>
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Documents analyzed</p>
                   <p className="text-2xl font-semibold">{adminStats?.documentsAnalyzed ?? 0}</p>
                 </div>
-                <div className="rounded-xl border p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-slate-500">Avg. response time</p>
                   <p className="text-2xl font-semibold">{(adminStats?.avgResponseSec ?? 1.2) + "s"}</p>
                 </div>
@@ -1285,8 +1303,8 @@ export default function AgileClauseUI() {
 
               <div className="mt-6">
                 <h4 className="font-medium mb-2">Access Control</h4>
-                <table className="w-full text-left border rounded-xl overflow-hidden">
-                  <thead className="bg-slate-50 text-slate-600">
+                <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden">
+                  <thead className="bg-white text-slate-500">
                     <tr>
                       <th className="p-2">Role</th>
                       <th className="p-2">Permissions</th>
@@ -1294,29 +1312,29 @@ export default function AgileClauseUI() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-t">
+                    <tr className="border-t border-slate-200">
                       <td className="p-2">Admin</td>
                       <td className="p-2">Full access</td>
                       <td className="p-2">
-                        <button className="rounded-lg border px-2 py-1" onClick={() => alert("Edit coming soon")}>
+                        <button className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100" onClick={() => alert("Edit coming soon")}>
                           Edit
                         </button>
                       </td>
                     </tr>
-                    <tr className="border-t">
+                    <tr className="border-t border-slate-200">
                       <td className="p-2">Reviewer</td>
                       <td className="p-2">View + Comment</td>
                       <td className="p-2">
-                        <button className="rounded-lg border px-2 py-1" onClick={() => alert("Edit coming soon")}>
+                        <button className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100" onClick={() => alert("Edit coming soon")}>
                           Edit
                         </button>
                       </td>
                     </tr>
-                    <tr className="border-t">
+                    <tr className="border-t border-slate-200">
                       <td className="p-2">Contributor</td>
                       <td className="p-2">Upload + Analyze</td>
                       <td className="p-2">
-                        <button className="rounded-lg border px-2 py-1" onClick={() => alert("Edit coming soon")}>
+                        <button className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-100" onClick={() => alert("Edit coming soon")}>
                           Edit
                         </button>
                       </td>
@@ -1325,14 +1343,57 @@ export default function AgileClauseUI() {
                 </table>
               </div>
 
+              {/* Demo Requests */}
+              <div className="mt-6">
+                <h4 className="font-medium mb-2">Demo Requests ({demoRequests.length})</h4>
+                {demoRequests.length === 0 ? (
+                  <p className="text-slate-500">No demo requests yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden">
+                      <thead className="bg-white text-slate-500">
+                        <tr>
+                          <th className="p-2">Name</th>
+                          <th className="p-2">Email</th>
+                          <th className="p-2">Company</th>
+                          <th className="p-2">Job Title</th>
+                          <th className="p-2">Team Size</th>
+                          <th className="p-2">Phone</th>
+                          <th className="p-2">How Heard</th>
+                          <th className="p-2">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {demoRequests.map((req) => (
+                          <tr key={req.id} className="border-t border-slate-200">
+                            <td className="p-2">{req.first_name} {req.last_name}</td>
+                            <td className="p-2">
+                              <a href={`mailto:${req.email}`} className="text-blue-600 hover:underline">
+                                {req.email}
+                              </a>
+                            </td>
+                            <td className="p-2">{req.company_name}</td>
+                            <td className="p-2">{req.job_title}</td>
+                            <td className="p-2">{req.team_size}</td>
+                            <td className="p-2">{req.phone || "-"}</td>
+                            <td className="p-2 max-w-[200px] truncate" title={req.how_heard}>{req.how_heard}</td>
+                            <td className="p-2 whitespace-nowrap">{new Date(req.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {diagnostics && (
                 <div className="mt-6">
                   <h4 className="font-medium mb-2">API Diagnostics</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="rounded-lg border p-2">/api/analyze POST → <strong>{String(diagnostics.analyzePOST)}</strong></div>
-                    <div className="rounded-lg border p-2">/api/analyze GET → <strong>{String(diagnostics.analyzeGET)}</strong></div>
-                    <div className="rounded-lg border p-2">/api/qa POST → <strong>{String(diagnostics.qaPOST)}</strong></div>
-                    <div className="rounded-lg border p-2">/api/qa GET → <strong>{String(diagnostics.qaGET)}</strong></div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2">/api/analyze POST → <strong>{String(diagnostics.analyzePOST)}</strong></div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2">/api/analyze GET → <strong>{String(diagnostics.analyzeGET)}</strong></div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2">/api/qa POST → <strong>{String(diagnostics.qaPOST)}</strong></div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2">/api/qa GET → <strong>{String(diagnostics.qaGET)}</strong></div>
                   </div>
                 </div>
               )}
@@ -1341,13 +1402,13 @@ export default function AgileClauseUI() {
 
           {/* Diagnostics (visible if set by button) */}
           {diagnostics && active !== "Admin" && (
-            <section className="rounded-2xl border bg-white p-6 shadow-sm text-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm">
               <h3 className="font-semibold mb-2">API Diagnostics</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-lg border p-2">/api/analyze POST → <strong>{String(diagnostics.analyzePOST)}</strong></div>
-                <div className="rounded-lg border p-2">/api/analyze GET → <strong>{String(diagnostics.analyzeGET)}</strong></div>
-                <div className="rounded-lg border p-2">/api/qa POST → <strong>{String(diagnostics.qaPOST)}</strong></div>
-                <div className="rounded-lg border p-2">/api/qa GET → <strong>{String(diagnostics.qaGET)}</strong></div>
+                <div className="rounded-lg border border-slate-200 bg-white p-2">/api/analyze POST → <strong>{String(diagnostics.analyzePOST)}</strong></div>
+                <div className="rounded-lg border border-slate-200 bg-white p-2">/api/analyze GET → <strong>{String(diagnostics.analyzeGET)}</strong></div>
+                <div className="rounded-lg border border-slate-200 bg-white p-2">/api/qa POST → <strong>{String(diagnostics.qaPOST)}</strong></div>
+                <div className="rounded-lg border border-slate-200 bg-white p-2">/api/qa GET → <strong>{String(diagnostics.qaGET)}</strong></div>
               </div>
               <p className="mt-2 text-slate-500">Tip: If you see 405, ensure the route exports a matching handler (e.g., <code>export async function POST()</code>).</p>
             </section>

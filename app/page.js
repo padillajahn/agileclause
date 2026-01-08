@@ -1,5 +1,5 @@
-import AgileClauseUI from "../components/AgileClauseUI";
+import LandingPage from "../components/LandingPage";
 
 export default function Page() {
-  return <AgileClauseUI />;
+  return <LandingPage />;
 }
