@@ -25,10 +25,21 @@ import {
   Copy,
   Clock,
   UserPlus,
+  Database,
+  Workflow,
 } from "lucide-react";
 
 // Dynamically import PDF editor to avoid SSR issues
 const PdfEditor = dynamic(() => import("./PdfEditor"), { ssr: false });
+
+// Dynamically import Assistant to avoid SSR issues
+const Assistant = dynamic(() => import("./Assistant"), { ssr: false });
+
+// Dynamically import Vault to avoid SSR issues
+const Vault = dynamic(() => import("./Vault"), { ssr: false });
+
+// Dynamically import Workflows to avoid SSR issues
+const Workflows = dynamic(() => import("./Workflows"), { ssr: false });
 
 export default function AgileClauseUI() {
   // ===== Types =====
@@ -55,7 +66,7 @@ export default function AgileClauseUI() {
 
   // ===== State =====
   const [active, setActive] = React.useState<
-    "Contracts" | "Legal Q&A" | "Compliance" | "Templates" | "Team" | "Settings" | "Admin"
+    "Contracts" | "Legal Q&A" | "Compliance" | "Templates" | "Team" | "Settings" | "Admin" | "Assistant" | "Vault" | "Workflows"
   >("Contracts");
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -350,6 +361,9 @@ export default function AgileClauseUI() {
           <p className="mt-1 text-xs text-slate-500">AI for contracts & compliance</p>
         </div>
         <nav className="p-3 space-y-1">
+          <NavBtn icon={Sparkles} label="Assistant" />
+          <NavBtn icon={Database} label="Vault" />
+          <NavBtn icon={Workflow} label="Workflows" />
           <NavBtn icon={FileText} label="Contracts" />
           <NavBtn icon={Search} label="Legal Q&A" />
           <NavBtn icon={ShieldCheck} label="Compliance" />
@@ -382,27 +396,36 @@ export default function AgileClauseUI() {
 
       {/* Main content */}
       <main className="ml-72 relative z-10">
-        {/* Top bar */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200">
-          <div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
-            <h1 className="text-lg font-semibold">{active}</h1>
-            <div className="flex items-center gap-2">
-              {active === "Contracts" && (
-                <button
-                  onClick={handleUploadClick}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 shadow-sm"
-                >
-                  <Upload className="h-4 w-4" /> New Document
-                </button>
-              )}
-              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-white transition">
-                <Play className="h-4 w-4" /> Quick Demo
-              </button>
-            </div>
-          </div>
-        </header>
+        {/* Assistant, Vault, and Workflows take full height without header */}
+        {active === "Assistant" ? (
+          <Assistant />
+        ) : active === "Vault" ? (
+          <Vault />
+        ) : active === "Workflows" ? (
+          <Workflows />
+        ) : (
+          <>
+            {/* Top bar */}
+            <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200">
+              <div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
+                <h1 className="text-lg font-semibold">{active}</h1>
+                <div className="flex items-center gap-2">
+                  {active === "Contracts" && (
+                    <button
+                      onClick={handleUploadClick}
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 shadow-sm"
+                    >
+                      <Upload className="h-4 w-4" /> New Document
+                    </button>
+                  )}
+                  <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-white transition">
+                    <Play className="h-4 w-4" /> Quick Demo
+                  </button>
+                </div>
+              </div>
+            </header>
 
-        <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
+            <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
           {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">{errorMsg}</div>}
           {!errorMsg && warningMsg && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">{warningMsg}</div>
@@ -1413,7 +1436,9 @@ export default function AgileClauseUI() {
               <p className="mt-2 text-slate-500">Tip: If you see 405, ensure the route exports a matching handler (e.g., <code>export async function POST()</code>).</p>
             </section>
           )}
-        </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* PDF Editor Modal */}
