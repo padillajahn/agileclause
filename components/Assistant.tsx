@@ -1,6 +1,31 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+
+// Server-side text extraction
+async function extractTextFromFile(file: File): Promise<string> {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/extract-text", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to extract text");
+    }
+
+    const data = await response.json();
+    return data.text || "[No text extracted]";
+  } catch (error) {
+    console.error("Error extracting text from file:", error);
+    return "[Unable to extract text from file]";
+  }
+}
+
 import {
   Send,
   Paperclip,
@@ -265,6 +290,7 @@ export default function Assistant() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [showSources, setShowSources] = useState<string | null>(null);
   const [selectedKnowledgeSources, setSelectedKnowledgeSources] = useState<string[]>([]);
@@ -373,10 +399,15 @@ export default function Assistant() {
       convoId = newConvo.id;
     }
 
+    // Build display message (what user sees)
+    const displayContent = uploadedDocs.length > 0
+      ? `${input}\n\n📎 Attached: ${uploadedDocs.map(d => d.name).join(", ")}`
+      : input;
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: displayContent,
       timestamp: new Date(),
     };
 
@@ -385,17 +416,45 @@ export default function Assistant() {
         ? { ...c, messages: [...c.messages, userMessage] }
         : c
     ));
+
+    const currentInput = input;
+    const currentDocs = [...uploadedDocs];
+
     setInput("");
+    setUploadedDocs([]); // Clear docs after capturing them
     setIsLoading(true);
 
     try {
+      // Extract text from all uploaded documents
+      let documentContents = "";
+      if (currentDocs.length > 0) {
+        setIsExtracting(true);
+        const extractedTexts = await Promise.all(
+          currentDocs.map(async (doc) => {
+            if (doc.file) {
+              const text = await extractTextFromFile(doc.file);
+              return `\n\n=== Document: ${doc.name} ===\n${text}`;
+            }
+            return "";
+          })
+        );
+        documentContents = extractedTexts.join("");
+        setIsExtracting(false);
+      }
+
+      // Build context-aware message for API (includes actual file contents)
+      let apiMessage = currentInput;
+      if (documentContents) {
+        apiMessage = `The user has uploaded the following document(s) for analysis:\n${documentContents}\n\n---\n\nUser's request: ${currentInput}`;
+      }
+
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
+          message: apiMessage,
           conversationId: convoId,
-          documents: uploadedDocs.map(d => d.id),
+          documents: uploadedDocs.map(d => ({ id: d.id, name: d.name, type: d.type, size: d.size })),
           knowledgeSources: selectedKnowledgeSources,
           draftMode: false,
         }),
@@ -430,6 +489,7 @@ export default function Assistant() {
       ));
     } finally {
       setIsLoading(false);
+      setIsExtracting(false);
     }
   };
 
@@ -816,9 +876,8 @@ export default function Assistant() {
         {/* ===== ASSIST TAB ===== */}
         {activeTab === "assist" && (
           <>
-            {/* Knowledge Sources & File Upload Bar */}
-            <div className="px-6 py-3 border-b border-slate-200 bg-white space-y-3">
-              {/* Knowledge Sources */}
+            {/* Knowledge Sources Bar */}
+            <div className="px-6 py-3 border-b border-slate-200 bg-white">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-500 whitespace-nowrap">Knowledge Sources:</span>
                 <div className="flex flex-wrap gap-2">
@@ -844,62 +903,18 @@ export default function Assistant() {
                   })}
                 </div>
               </div>
-
-              {/* File Upload Area */}
-              <div
-                className={`border-2 border-dashed rounded-xl p-4 transition ${
-                  isDragging ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, false)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Upload className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-sm text-slate-600">
-                        Drag & drop files here, or{" "}
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-blue-600 hover:underline"
-                        >
-                          browse
-                        </button>
-                      </p>
-                      <p className="text-xs text-slate-400">PDF, DOCX, DOC, or TXT</p>
-                    </div>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.doc,.txt"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, false)}
-                  />
-                </div>
-
-                {/* Uploaded Files */}
-                {uploadedDocs.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
-                    {uploadedDocs.map(doc => (
-                      <div key={doc.id} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-sm">
-                        <FileText className="w-4 h-4 text-slate-500" />
-                        <span className="text-slate-700 max-w-[150px] truncate">{doc.name}</span>
-                        <span className="text-slate-400 text-xs">{formatFileSize(doc.size)}</span>
-                        <button onClick={() => removeDoc(doc.id)} className="text-slate-400 hover:text-red-500">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.txt"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e, false)}
+              />
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center p-8">
                   <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
@@ -938,20 +953,26 @@ export default function Assistant() {
                   </div>
                 </div>
               ) : (
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 max-w-4xl mx-auto">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-3xl rounded-2xl px-4 py-3 ${
+                        className={`rounded-2xl px-4 py-3 overflow-hidden ${
                           msg.role === "user"
-                            ? "bg-blue-600 text-white"
-                            : "bg-white border border-slate-200 text-slate-900"
+                            ? "bg-blue-600 text-white max-w-2xl"
+                            : "bg-white border border-slate-200 text-slate-900 w-full"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === "user" ? (
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        ) : (
+                          <div className="prose prose-slate prose-sm max-w-none prose-headings:text-slate-900 prose-headings:font-semibold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-table:my-3 prose-table:w-full prose-th:bg-slate-100 prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-td:border prose-th:border prose-blockquote:border-l-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-1 prose-code:bg-slate-100 prose-code:px-1 prose-code:rounded prose-code:break-all prose-strong:text-slate-900 prose-pre:overflow-x-auto break-words">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        )}
 
                         {/* Sources */}
                         {msg.sources && msg.sources.length > 0 && (
@@ -999,7 +1020,9 @@ export default function Assistant() {
                     <div className="flex justify-start">
                       <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                        <span className="text-slate-500">Thinking...</span>
+                        <span className="text-slate-500">
+                          {isExtracting ? "Extracting text from documents..." : "Analyzing and generating response..."}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1009,14 +1032,60 @@ export default function Assistant() {
               )}
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 border-t border-slate-200 bg-white">
+            {/* Input Area with Drag & Drop */}
+            <div
+              className={`p-4 border-t border-slate-200 bg-white transition ${
+                isDragging ? "bg-blue-50" : ""
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, false)}
+            >
               <div className="max-w-4xl mx-auto">
-                <div className="flex items-end gap-3 bg-slate-50 rounded-2xl border border-slate-200 p-3">
+                {/* Drag overlay indicator */}
+                {isDragging && (
+                  <div className="mb-3 p-4 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50 text-center">
+                    <Upload className="w-6 h-6 text-blue-500 mx-auto mb-1" />
+                    <p className="text-sm text-blue-600 font-medium">Drop files here</p>
+                  </div>
+                )}
+
+                {/* Attached Files Display */}
+                {uploadedDocs.length > 0 && (
+                  <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Paperclip className="w-4 h-4 text-slate-500" />
+                      <span className="text-xs font-medium text-slate-600">
+                        {uploadedDocs.length} file{uploadedDocs.length > 1 ? "s" : ""} attached
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {uploadedDocs.map(doc => (
+                        <div key={doc.id} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm group">
+                          <FileText className="w-4 h-4 text-blue-500" />
+                          <span className="text-slate-700 max-w-[150px] truncate">{doc.name}</span>
+                          <span className="text-slate-400 text-xs">{formatFileSize(doc.size)}</span>
+                          <button
+                            onClick={() => removeDoc(doc.id)}
+                            className="text-slate-400 hover:text-red-500 transition"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className={`flex items-end gap-3 rounded-2xl border p-3 transition ${
+                  isDragging
+                    ? "bg-blue-50 border-blue-300"
+                    : "bg-slate-50 border-slate-200"
+                }`}>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition"
-                    title="Attach documents"
+                    title="Attach documents (PDF, DOCX, DOC, TXT)"
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
@@ -1031,7 +1100,10 @@ export default function Assistant() {
                         handleSend();
                       }
                     }}
-                    placeholder="Ask me anything about your contracts..."
+                    placeholder={uploadedDocs.length > 0
+                      ? "Ask about your attached files..."
+                      : "Ask me anything about your contracts... (drag & drop files here)"
+                    }
                     className="flex-1 bg-transparent border-none outline-none resize-none text-slate-900 placeholder-slate-400 text-sm min-h-[24px] max-h-[200px]"
                     rows={1}
                   />
@@ -1045,7 +1117,7 @@ export default function Assistant() {
                   </button>
                 </div>
                 <p className="text-xs text-slate-400 text-center mt-2">
-                  Press Enter to send, Shift+Enter for new line
+                  Press Enter to send • Drag & drop or click <Paperclip className="w-3 h-3 inline" /> to attach files
                 </p>
               </div>
             </div>
@@ -1125,21 +1197,27 @@ export default function Assistant() {
                 </div>
 
                 {/* Draft conversation */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  <div className="max-w-3xl mx-auto space-y-4">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
+                  <div className="max-w-4xl mx-auto space-y-4">
                     {draftMessages.map((msg) => (
                       <div
                         key={msg.id}
                         className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-2xl rounded-2xl px-4 py-3 ${
+                          className={`rounded-2xl px-4 py-3 overflow-hidden ${
                             msg.role === "user"
-                              ? "bg-purple-600 text-white"
-                              : "bg-white border border-slate-200 text-slate-900"
+                              ? "bg-purple-600 text-white max-w-2xl"
+                              : "bg-white border border-slate-200 text-slate-900 w-full"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          {msg.role === "user" ? (
+                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          ) : (
+                            <div className="prose prose-slate prose-sm max-w-none prose-headings:text-slate-900 prose-headings:font-semibold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-table:my-3 prose-table:w-full prose-table:overflow-x-auto prose-th:bg-slate-100 prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-td:border prose-th:border prose-blockquote:border-l-purple-500 prose-blockquote:bg-purple-50 prose-blockquote:py-1 prose-code:bg-slate-100 prose-code:px-1 prose-code:rounded prose-code:break-all prose-strong:text-slate-900 prose-pre:overflow-x-auto break-words">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                          )}
                           {msg.role === "assistant" && (
                             <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
                               <button

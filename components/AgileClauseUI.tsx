@@ -353,9 +353,7 @@ export default function AgileClauseUI() {
       <aside className="fixed left-0 top-0 h-full w-72 border-r border-slate-200 bg-white z-20">
         <div className="px-6 py-5 border-b border-slate-200">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="AgileClause" className="w-8 h-8" />
             <span className="text-xl font-semibold tracking-tight">AgileClause</span>
           </Link>
           <p className="mt-1 text-xs text-slate-500">AI for contracts & compliance</p>

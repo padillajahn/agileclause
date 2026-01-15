@@ -224,6 +224,10 @@ export default function Vault() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderDescription, setNewFolderDescription] = useState("");
   const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [sharePermission, setSharePermission] = useState<"view" | "edit" | "admin">("view");
+  const [shareLinkEnabled, setShareLinkEnabled] = useState(false);
+  const [shareLink, setShareLink] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -408,6 +412,72 @@ export default function Vault() {
     if (confidence >= 85) return "text-blue-600 bg-blue-100";
     if (confidence >= 70) return "text-amber-600 bg-amber-100";
     return "text-red-600 bg-red-100";
+  };
+
+  const inviteUser = () => {
+    if (!shareEmail.trim() || !selectedFolderId) return;
+
+    // Check if user already has access
+    const folder = folders.find(f => f.id === selectedFolderId);
+    if (folder?.sharedWith.some(u => u.email.toLowerCase() === shareEmail.toLowerCase())) {
+      alert("This user already has access to the vault");
+      return;
+    }
+
+    const newUser: SharedUser = {
+      id: Date.now().toString(),
+      name: shareEmail.split("@")[0], // Use email prefix as name
+      email: shareEmail,
+      permission: sharePermission,
+    };
+
+    setFolders(prev => prev.map(f =>
+      f.id === selectedFolderId
+        ? { ...f, sharedWith: [...f.sharedWith, newUser] }
+        : f
+    ));
+
+    setShareEmail("");
+    setSharePermission("view");
+  };
+
+  const removeUserAccess = (userId: string) => {
+    if (!selectedFolderId) return;
+    setFolders(prev => prev.map(f =>
+      f.id === selectedFolderId
+        ? { ...f, sharedWith: f.sharedWith.filter(u => u.id !== userId) }
+        : f
+    ));
+  };
+
+  const updateUserPermission = (userId: string, newPermission: "view" | "edit" | "admin") => {
+    if (!selectedFolderId) return;
+    setFolders(prev => prev.map(f =>
+      f.id === selectedFolderId
+        ? {
+            ...f,
+            sharedWith: f.sharedWith.map(u =>
+              u.id === userId ? { ...u, permission: newPermission } : u
+            ),
+          }
+        : f
+    ));
+  };
+
+  const generateShareLink = () => {
+    const link = `https://agileclause.com/vault/${selectedFolderId}?token=${Math.random().toString(36).substr(2, 12)}`;
+    setShareLink(link);
+    setShareLinkEnabled(true);
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareLink);
+    alert("Link copied to clipboard!");
+  };
+
+  const disableShareLink = () => {
+    setShareLinkEnabled(false);
+    setShareLink("");
   };
 
   // ===== Render =====
@@ -919,46 +989,144 @@ export default function Vault() {
       {/* Share Modal */}
       {showShareModal && selectedFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Share "{selectedFolder.name}"</h3>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-slate-900">Share "{selectedFolder.name}"</h3>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Invite by email</label>
+            {/* Invite by Email */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Invite people</label>
               <div className="flex gap-2">
                 <input
                   type="email"
-                  placeholder="colleague@company.com"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                  placeholder="Enter email address"
                   className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  onKeyDown={(e) => e.key === "Enter" && inviteUser()}
                 />
-                <select className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                  <option value="view">View</option>
-                  <option value="edit">Edit</option>
+                <select
+                  value={sharePermission}
+                  onChange={(e) => setSharePermission(e.target.value as "view" | "edit" | "admin")}
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="view">Can view</option>
+                  <option value="edit">Can edit</option>
                   <option value="admin">Admin</option>
                 </select>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition">
+                <button
+                  onClick={inviteUser}
+                  disabled={!shareEmail.trim()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
                   Invite
                 </button>
               </div>
+              <p className="text-xs text-slate-500 mt-2">
+                <span className="font-medium">View:</span> Can see documents • <span className="font-medium">Edit:</span> Can add/modify • <span className="font-medium">Admin:</span> Full control
+              </p>
             </div>
 
-            <div className="mb-4">
-              <p className="text-sm font-medium text-slate-700 mb-2">People with access</p>
+            {/* Link Sharing */}
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">Share via link</span>
+                </div>
+                <button
+                  onClick={shareLinkEnabled ? disableShareLink : generateShareLink}
+                  className={`relative w-11 h-6 rounded-full transition ${
+                    shareLinkEnabled ? "bg-indigo-600" : "bg-slate-300"
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      shareLinkEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {shareLinkEnabled && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={shareLink}
+                    readOnly
+                    className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600"
+                  />
+                  <button
+                    onClick={copyShareLink}
+                    className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition"
+                  >
+                    <Copy className="w-4 h-4 text-slate-600" />
+                  </button>
+                </div>
+              )}
+              {!shareLinkEnabled && (
+                <p className="text-xs text-slate-500">Anyone with the link can view this vault</p>
+              )}
+            </div>
+
+            {/* People with Access */}
+            <div className="mb-6">
+              <p className="text-sm font-medium text-slate-700 mb-3">People with access</p>
+
+              {/* Owner */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-medium">
+                    Y
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">You</p>
+                    <p className="text-xs text-slate-500">Owner</p>
+                  </div>
+                </div>
+                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg">Owner</span>
+              </div>
+
+              {/* Shared Users */}
               {selectedFolder.sharedWith.length === 0 ? (
-                <p className="text-sm text-slate-500">Only you have access to this vault</p>
+                <p className="text-sm text-slate-500 text-center py-4">No one else has access yet</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {selectedFolder.sharedWith.map(user => (
-                    <div key={user.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-medium text-sm">
-                          {user.name[0]}
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-medium">
+                          {user.name[0].toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-900">{user.name}</p>
                           <p className="text-xs text-slate-500">{user.email}</p>
                         </div>
                       </div>
-                      <span className="text-xs text-slate-500 capitalize">{user.permission}</span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={user.permission}
+                          onChange={(e) => updateUserPermission(user.id, e.target.value as "view" | "edit" | "admin")}
+                          className="px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white"
+                        >
+                          <option value="view">Can view</option>
+                          <option value="edit">Can edit</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <button
+                          onClick={() => removeUserAccess(user.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100"
+                          title="Remove access"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -967,7 +1135,7 @@ export default function Vault() {
 
             <button
               onClick={() => setShowShareModal(false)}
-              className="w-full px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition"
+              className="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium"
             >
               Done
             </button>

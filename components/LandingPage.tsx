@@ -38,9 +38,7 @@ export default function LandingPage() {
       <nav className="relative z-50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="AgileClause" className="w-8 h-8" />
             <span className="text-xl font-semibold tracking-tight">AgileClause</span>
           </div>
 
@@ -56,7 +54,7 @@ export default function LandingPage() {
                 href="/dashboard"
                 className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-100 transition"
               >
-                Go to Dashboard
+                Sign In
               </Link>
             ) : (
               <>
@@ -360,9 +358,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
+              <img src="/logo.png" alt="AgileClause" className="w-8 h-8" />
               <span className="text-lg font-semibold">AgileClause</span>
             </div>
             <div className="flex items-center gap-8 text-sm text-gray-500">
