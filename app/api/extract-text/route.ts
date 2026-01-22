@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (file.type === "application/pdf") {
       // Use unpdf for PDF files
       const result = await extractText(new Uint8Array(arrayBuffer));
-      extractedText = result.text;
+      extractedText = Array.isArray(result.text) ? result.text.join("\n") : result.text;
     } else if (
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       file.type === "application/msword"
