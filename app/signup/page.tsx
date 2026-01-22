@@ -53,7 +53,7 @@ export default function SignupPage() {
             </div>
             <h1 className="text-xl font-semibold mb-2">Check your email</h1>
             <p className="text-slate-500 mb-4">
-              We've sent a confirmation link to <strong>{email}</strong>
+              We&apos;ve sent a confirmation link to <strong>{email}</strong>
             </p>
             <p className="text-sm text-slate-400">
               Click the link in your email to verify your account and sign in.

@@ -58,7 +58,7 @@ export default function DemoRequestPage() {
           </div>
           <h1 className="text-3xl font-bold mb-4">Thank you!</h1>
           <p className="text-gray-400 mb-8">
-            We've received your demo request. Our team will reach out to you within 24 hours.
+            We&apos;ve received your demo request. Our team will reach out to you within 24 hours.
           </p>
           <Link
             href="/"

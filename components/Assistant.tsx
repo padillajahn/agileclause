@@ -1137,7 +1137,7 @@ export default function Assistant() {
                     </div>
                     <h3 className="text-2xl font-semibold text-slate-900 mb-2">What would you like to draft?</h3>
                     <p className="text-slate-500">
-                      Select a document type below and I'll guide you through the drafting process step by step.
+                      Select a document type below and I&apos;ll guide you through the drafting process step by step.
                     </p>
                   </div>
 

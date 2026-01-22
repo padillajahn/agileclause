@@ -1572,7 +1572,7 @@ export default function Workflows() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">My Workflows</h2>
-                <p className="text-sm text-slate-500">Custom workflows you've created</p>
+                <p className="text-sm text-slate-500">Custom workflows you&apos;ve created</p>
               </div>
               <button
                 onClick={() => setActiveView("builder")}

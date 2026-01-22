@@ -911,7 +911,7 @@ export default function Vault() {
                   <div className="text-center py-12">
                     <Clock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
                     <p className="text-slate-600">Pending Analysis</p>
-                    <p className="text-sm text-slate-400 mb-4">Click "Analyze All" to process this document</p>
+                    <p className="text-sm text-slate-400 mb-4">Click &quot;Analyze All&quot; to process this document</p>
                     <button
                       onClick={() => {
                         setDocuments(prev => prev.map(d =>
@@ -991,7 +991,7 @@ export default function Vault() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-slate-900">Share "{selectedFolder.name}"</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Share &quot;{selectedFolder.name}&quot;</h3>
               <button
                 onClick={() => setShowShareModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition"

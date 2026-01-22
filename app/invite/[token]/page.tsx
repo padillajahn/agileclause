@@ -81,9 +81,9 @@ export default function InvitePage() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <h1 className="text-xl font-semibold mb-2">You're Invited!</h1>
+          <h1 className="text-xl font-semibold mb-2">You&apos;re Invited!</h1>
           <p className="text-slate-500 mb-2">
-            You've been invited to join AgileClause as a
+            You&apos;ve been invited to join AgileClause as a
           </p>
           <p className="text-lg font-medium text-blue-600 mb-4">
             {invitation?.roles?.name || "Team Member"}
