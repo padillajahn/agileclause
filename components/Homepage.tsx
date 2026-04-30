@@ -592,7 +592,7 @@ export default function Homepage() {
 
       {/* ============ Nav ============ */}
       <nav className="relative z-10">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 py-6 md:px-12">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-8 py-6 md:px-12">
           <Link
             href="/"
             className="text-[13px] font-medium tracking-tight text-stone-100"
@@ -618,7 +618,7 @@ export default function Homepage() {
 
       {/* ============ HERO ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 pb-16 pt-24 md:px-12 md:pt-40">
+        <div className="mx-auto max-w-[1200px] px-8 pb-24 pt-32 md:px-12 md:pt-40">
           <h1 className="font-[family-name:var(--font-serif)] max-w-[18ch] text-[44px] font-normal leading-[1.02] tracking-[-0.02em] text-stone-50 md:text-[80px] lg:text-[100px]">
             Review contracts in minutes,{" "}
             <span className="italic text-stone-400">not hours.</span>
@@ -645,7 +645,7 @@ export default function Homepage() {
 
       {/* ============ DEMO SECTION ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 pb-20 md:px-12 md:pb-44">
+        <div className="mx-auto max-w-[1200px] px-8 pb-32 md:px-12 md:pb-44">
           {/* Caption */}
           <p className="mb-8 text-[13px] text-stone-500">
             See AgileClause review a contract in under 2 minutes
@@ -662,7 +662,7 @@ export default function Homepage() {
 
       {/* ============ STATEMENT ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-12 md:py-44">
+        <div className="mx-auto max-w-[1200px] px-8 py-32 md:px-12 md:py-44">
           <div className="grid grid-cols-1 gap-16 md:grid-cols-12 md:items-center md:gap-12">
             {/* Text */}
             <div className="md:col-span-6">
@@ -692,7 +692,7 @@ export default function Homepage() {
 
       {/* ============ CAPABILITIES — interactive ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-12 md:py-44">
+        <div className="mx-auto max-w-[1200px] px-8 py-32 md:px-12 md:py-44">
           <div className="grid grid-cols-1 gap-16 md:grid-cols-12 md:gap-16">
             {/* Left: capability list */}
             <ul className="md:col-span-6">
@@ -757,7 +757,7 @@ export default function Homepage() {
 
       {/* ============ USE CASES ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-12 md:py-44">
+        <div className="mx-auto max-w-[1200px] px-8 py-32 md:px-12 md:py-44">
           <div className="grid grid-cols-1 gap-12 md:grid-cols-12 md:items-center md:gap-12">
             {/* Vertical list */}
             <ul className="md:col-span-8 space-y-2 md:space-y-3">
@@ -804,7 +804,7 @@ export default function Homepage() {
 
       {/* ============ SECURITY ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-12 md:py-44">
+        <div className="mx-auto max-w-[1200px] px-8 py-32 md:px-12 md:py-44">
           <div className="grid grid-cols-1 gap-16 md:grid-cols-12 md:items-center md:gap-12">
             <div className="md:col-span-5">
               <h2 className="font-[family-name:var(--font-serif)] max-w-[14ch] text-[36px] font-normal leading-[1.05] tracking-[-0.02em] text-stone-100 md:text-[56px]">
@@ -849,7 +849,7 @@ export default function Homepage() {
 
       {/* ============ FINAL CTA ============ */}
       <section className="relative z-10">
-        <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-12 md:py-44">
+        <div className="mx-auto max-w-[1200px] px-8 py-32 md:px-12 md:py-44">
           <div
             className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.025] to-transparent p-10 md:p-20"
           >
@@ -885,7 +885,7 @@ export default function Homepage() {
 
       {/* ============ FOOTER ============ */}
       <footer className="relative z-10">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-10 md:px-12">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-8 py-10 md:px-12">
           <p className="text-[12px] tracking-tight text-stone-600">
             AgileClause — © {new Date().getFullYear()}
           </p>

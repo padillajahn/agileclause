@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useAuth } from "@/lib/auth-context";
-import { Search, Upload, Menu } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 import Sidebar, { SidebarTab } from "./Sidebar";
 import { Button } from "./ui/Button";
 import ContractsPage from "./pages/ContractsPage";
@@ -25,12 +25,6 @@ export default function AgileClauseUI() {
 
   // ===== Navigation =====
   const [active, setActive] = React.useState<SidebarTab>("Contracts");
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
-
-  function changeTab(tab: SidebarTab) {
-    setActive(tab);
-    setSidebarOpen(false);
-  }
 
   // ===== Shared contract state =====
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -139,12 +133,10 @@ export default function AgileClauseUI() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
       <Sidebar
         active={active}
-        onChange={changeTab}
+        onChange={setActive}
         profile={profile ? { ...profile, full_name: profile.full_name ?? null } : null}
         onSignOut={signOut}
         isAdmin={isAdmin}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Single hidden file input — triggered via <label htmlFor> from any button */}
@@ -157,26 +149,15 @@ export default function AgileClauseUI() {
         onChange={handleFileChange}
       />
 
-      <main className="relative z-10 md:ml-72">
+      <main className="ml-72 relative z-10">
         {/* Top bar */}
         <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/70 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:gap-4 md:px-8">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-8 py-3">
             {/* Breadcrumb */}
-            <div className="flex min-w-0 items-center gap-2 text-xs">
-              <span className="hidden text-slate-400 md:inline">
-                {profile?.full_name || "Workspace"}
-              </span>
-              <span className="hidden text-slate-300 md:inline">/</span>
-              <span className="truncate font-medium text-slate-900">{active}</span>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">{profile?.full_name || "Workspace"}</span>
+              <span className="text-slate-300">/</span>
+              <span className="font-medium text-slate-900">{active}</span>
             </div>
 
             {/* Search */}
@@ -199,15 +180,13 @@ export default function AgileClauseUI() {
               htmlFor={UPLOAD_INPUT_ID}
               className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-900 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:bg-slate-800"
             >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Upload contract</span>
-              <span className="sm:hidden">Upload</span>
+              <Upload className="h-3.5 w-3.5" /> Upload contract
             </label>
           </div>
         </header>
 
         {/* Page content */}
-        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">
+        <div className="mx-auto max-w-7xl px-8 py-10">
           {active === "Contracts" && (
             <ContractsPage
               selectedFile={selectedFile}

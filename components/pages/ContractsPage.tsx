@@ -200,8 +200,8 @@ export default function ContractsPage(props: Props) {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+            <div className="overflow-hidden">
+              <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/60 text-[11px] font-medium uppercase tracking-widest text-slate-500">
                     <th className="px-6 py-3">Name</th>
