@@ -72,7 +72,7 @@ export default function AdminPage() {
           <p className="px-6 py-8 text-center text-xs text-slate-500">No demo requests yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200/60 text-[11px] font-medium uppercase tracking-widest text-slate-500">
                   <th className="px-6 py-3">Name</th>

@@ -12,6 +12,7 @@ import {
   Settings as SettingsIcon,
   BarChart,
   ChevronDown,
+  X,
 } from "lucide-react";
 
 export type SidebarTab =
@@ -37,16 +38,40 @@ type Props = {
   profile: { full_name?: string | null; email: string; role?: string } | null;
   onSignOut: () => void;
   isAdmin?: boolean;
+  open?: boolean;
+  onClose?: () => void;
 };
 
-export default function Sidebar({ active, onChange, profile, onSignOut, isAdmin }: Props) {
+export default function Sidebar({
+  active,
+  onChange,
+  profile,
+  onSignOut,
+  isAdmin,
+  open = false,
+  onClose,
+}: Props) {
   const initial =
     (profile?.full_name?.[0] || profile?.email?.[0] || "A").toUpperCase();
 
   return (
-    <aside className="fixed left-0 top-0 z-20 flex h-full w-72 flex-col border-r border-white/5 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
+    <>
+      {/* Mobile backdrop */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-20 bg-slate-950/60 backdrop-blur-sm transition-opacity md:hidden ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        aria-hidden
+      />
+
+    <aside
+      className={`fixed left-0 top-0 z-30 flex h-full w-72 flex-col border-r border-white/5 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 transition-transform duration-300 md:translate-x-0 ${
+        open ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-white/5">
+      <div className="flex items-center justify-between px-5 py-5 border-b border-white/5">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-300/20 to-amber-500/10 ring-1 ring-amber-200/20">
             <span className="text-sm font-semibold text-amber-100">A</span>
@@ -58,6 +83,14 @@ export default function Sidebar({ active, onChange, profile, onSignOut, isAdmin 
             </p>
           </div>
         </Link>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-white md:hidden"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Workspace switcher */}
@@ -170,5 +203,6 @@ export default function Sidebar({ active, onChange, profile, onSignOut, isAdmin 
         </button>
       </div>
     </aside>
+    </>
   );
 }
