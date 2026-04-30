@@ -29,11 +29,11 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "24.3.1",
     "@types/react": "19.1.12",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4.2.4"
   }
 }
