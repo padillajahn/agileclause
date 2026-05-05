@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { saveDoc } from "../../../lib/store";
 
-export const runtime = "nodejs"; // required for Buffer/pdf-parse/crypto on Next.js
+export const runtime = "nodejs"; // required for Buffer/crypto/unpdf on Next.js
 
 export async function POST(req: Request) {
   try {
@@ -31,37 +31,25 @@ export async function POST(req: Request) {
       text = buffer.toString("utf-8");
     }
     // --- PDF ---
-else if (mime.includes("pdf") || filename.endsWith(".pdf")) {
-  try {
-    // Force CJS require so we definitely get the function export
-    const { createRequire } = await import("module");
-    const require = createRequire(import.meta.url);
-    const pdfParse = require("pdf-parse"); // <- CJS require, not ESM import
-
-    // Safety: make sure we really have bytes
-    if (!buffer || buffer.length === 0) {
-      return NextResponse.json(
-        { error: "Empty PDF uploaded (0 bytes)" },
-        { status: 400 }
-      );
+    else if (mime.includes("pdf") || filename.endsWith(".pdf")) {
+      try {
+        const { extractText } = await import("unpdf");
+        const result = await extractText(new Uint8Array(ab));
+        const out = (Array.isArray(result.text) ? result.text.join("\n") : result.text).trim();
+        if (!out) {
+          return NextResponse.json(
+            { error: "PDF parsed, but no selectable text found (likely a scanned image). OCR required." },
+            { status: 422 }
+          );
+        }
+        text = out;
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: `PDF parsing failed: ${e?.message || "unknown error"}` },
+          { status: 500 }
+        );
+      }
     }
-
-    const data = await pdfParse(buffer); // MUST pass the Buffer
-    const out = (data?.text || "").trim();
-    if (!out) {
-      return NextResponse.json(
-        { error: "PDF parsed, but no selectable text found (likely a scanned image). OCR required." },
-        { status: 422 }
-      );
-    }
-    text = out;
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: `PDF parsing failed: ${e?.message || "unknown error"}` },
-      { status: 500 }
-    );
-  }
-}
     // --- DOCX ---
     else if (mime.includes("wordprocessingml") || filename.endsWith(".docx")) {
       try {
